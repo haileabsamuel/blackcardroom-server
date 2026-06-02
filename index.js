@@ -205,6 +205,22 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Host can force-start game even if not all players clicked ready
+  socket.on('host_start_game', () => {
+    const info = players.get(socket.id);
+    if (!info) return;
+    const room = rooms.get(info.roomCode);
+    if (!room) return;
+    const rp = room.players.find(p => p.socketId === socket.id);
+    if (!rp || rp.seat !== 0) return socket.emit('error', { message: 'Only the host can start the game' });
+    if (room.players.length < 2) return socket.emit('error', { message: 'Need at least 2 players' });
+    if (room.phase !== 'lobby') return;
+    // Mark all as ready and start
+    room.players.forEach(p => p.ready = true);
+    io.to(info.roomCode).emit('room_updated', roomSummary(room));
+    startGame(room);
+  });
+
   socket.on('start_round', () => {
     const info = players.get(socket.id);
     if (!info) return;
